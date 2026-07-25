@@ -355,7 +355,8 @@ export const AutoForceResumePlugin: Plugin = async (input, options) => {
     const s = sessions.get(sessionId);
     if (!s) return;
     
-    // Don't nudge if user recently engaged
+    if (s.userCancelled) return;
+    
     if (s.lastUserMessageId) return;
     
     // Don't nudge if recently nudged
@@ -867,8 +868,14 @@ export const AutoForceResumePlugin: Plugin = async (input, options) => {
         log('session.error:', err?.name);
         if (err?.name === "MessageAbortedError") {
           const s = sessions.get(sid);
-          if (s) s.userCancelled = true;
-          log('user cancelled session:', sid);
+          if (s && !s.aborting) {
+            s.userCancelled = true;
+            log('user cancelled session:', sid);
+          } else if (s && s.aborting) {
+            log('system-triggered abort (recovery), not marking as user cancelled:', sid);
+          } else {
+            log('MessageAbortedError with no session state:', sid);
+          }
         }
         clearTimer(sid);
         writeStatusFile(sid);
