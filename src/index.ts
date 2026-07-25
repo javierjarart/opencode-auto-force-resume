@@ -868,11 +868,17 @@ export const AutoForceResumePlugin: Plugin = async (input, options) => {
         log('session.error:', err?.name);
         if (err?.name === "MessageAbortedError") {
           const s = sessions.get(sid);
-          if (s && !s.aborting) {
-            s.userCancelled = true;
-            log('user cancelled session:', sid);
-          } else if (s && s.aborting) {
+          if (s && s.aborting) {
             log('system-triggered abort (recovery), not marking as user cancelled:', sid);
+          } else if (s && !s.aborting) {
+            if (s.autoSubmitCount >= config.maxAutoSubmits) {
+              s.userCancelled = true;
+              log('max auto-submits reached, marking as user cancelled:', sid);
+            } else {
+              log('non-plugin abort detected, queuing continue to resume session:', sid);
+              s.needsContinue = true;
+              s.continueMessageText = config.continueMessage;
+            }
           } else {
             log('MessageAbortedError with no session state:', sid);
           }
